@@ -9,6 +9,7 @@
   },
   "scripts": {
     "start": "node server/index.mjs",
-    "test": "node --test tests/api.test.mjs tests/client.test.mjs"
+    "demo": "node scripts/demo.mjs",
+    "test": "node --test tests/api.test.mjs tests/client.test.mjs tests/demo.test.mjs"
   }
 }
