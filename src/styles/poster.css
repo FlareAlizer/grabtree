@@ -1,0 +1,84 @@
+/* ── Плакат: древо на одном листе, в раме ───────────────── */
+.poster {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  justify-items: center;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 24px 24px;
+  background: var(--scrim);
+  backdrop-filter: blur(6px);
+}
+
+.poster__bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 100%;
+  padding: 8px 8px 8px 22px;
+  border-radius: 999px;
+  background: var(--card);
+  box-shadow: var(--shadow-pop);
+}
+.poster__hint { font-size: 13px; color: var(--ink-2); }
+
+.poster__fit { position: relative; box-shadow: 0 30px 80px -20px rgba(0, 0, 0, .65); }
+.poster__sheet {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 1584px;
+  height: 1120px;
+  overflow: hidden;
+  transform-origin: 0 0;
+  background: var(--paper) var(--grain);
+}
+.poster__sheet .tree-stage { will-change: auto; }
+.poster__sheet .card { box-shadow: none; }
+
+/* Двойная рамка с ромбами по углам */
+.poster__frame { position: absolute; inset: 26px; border: 2px solid var(--gold); pointer-events: none; }
+.poster__frame::after { content: ''; position: absolute; inset: 7px; border: 1px solid var(--line-strong); }
+.poster__corner {
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  border: 2px solid var(--gold);
+  background: var(--paper);
+  transform: rotate(45deg);
+}
+.poster__corner--tl { top: 16px; left: 16px; }
+.poster__corner--tr { top: 16px; right: 16px; }
+.poster__corner--bl { bottom: 16px; left: 16px; }
+.poster__corner--br { bottom: 16px; right: 16px; }
+
+.poster__foot {
+  position: absolute;
+  inset: auto 0 56px;
+  display: grid;
+  gap: 4px;
+  text-align: center;
+  font: italic 500 21px/1.25 var(--font-display);
+  color: var(--ink-2);
+}
+.poster__foot span:first-child { font-style: normal; font-weight: 600; letter-spacing: .06em; color: var(--ink); }
+
+@media (max-width: 900px) {
+  .poster { padding: 10px; }
+  .poster__hint { display: none; }
+  .poster__bar { padding: 6px; }
+}
+
+@media print {
+  @page { size: A3 landscape; margin: 0; }
+  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  html, body { height: auto; overflow: visible; }
+  body.has-poster > :not(.poster) { display: none !important; }
+  .poster { position: static; display: block; padding: 0; background: none; backdrop-filter: none; }
+  .poster__bar { display: none; }
+  .poster__fit { width: 1584px !important; height: 1120px !important; box-shadow: none; }
+  .poster__sheet { transform: none !important; }
+}

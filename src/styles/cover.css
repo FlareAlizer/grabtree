@@ -1,0 +1,107 @@
+/* ── Обложка ────────────────────────────────────────────── */
+.cover {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  overflow: hidden auto;
+  background: var(--paper) var(--grain);
+  transition: opacity .6s var(--ease), visibility .6s, transform .6s var(--ease);
+}
+.cover.is-leaving { opacity: 0; visibility: hidden; transform: scale(1.03); }
+
+/* Двойная рамка по краю листа — как у старых родословных */
+.cover::before, .cover::after { content: ''; position: absolute; pointer-events: none; z-index: 1; }
+.cover::before { inset: 14px; border: 1.5px solid var(--gold); opacity: .7; }
+.cover::after { inset: 20px; border: 1px solid var(--line-strong); }
+
+.cover__inner {
+  position: relative;
+  width: min(640px, 100%);
+  margin-left: clamp(24px, 9vw, 150px);
+  padding: 56px 24px 56px 0;
+}
+
+.cover__title {
+  margin-top: 18px;
+  font: 500 clamp(52px, 7.4vw, 104px)/.94 var(--font-display);
+  letter-spacing: -.015em;
+}
+.cover__title em { display: block; font-style: italic; color: var(--moss); }
+
+.cover__lead {
+  max-width: 520px;
+  margin-top: 26px;
+  font-size: 18px;
+  line-height: 1.6;
+  color: var(--ink-2);
+}
+
+.dedication {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  max-width: 600px;
+  margin-top: 30px;
+  padding: 16px 22px 16px 18px;
+  border: 1px solid var(--gold);
+  border-radius: var(--r-md);
+  background: var(--gold-wash);
+}
+.dedication__age { flex: none; font: italic 600 56px/1 var(--font-display); color: var(--clay); }
+.dedication__text { font-size: 15px; line-height: 1.5; }
+.dedication__text b { font-weight: 600; }
+
+.enter { max-width: 600px; margin-top: 34px; }
+.enter__label { display: block; margin-bottom: 10px; font-size: 14px; font-weight: 500; }
+.enter__row { display: flex; gap: 10px; }
+.enter__row .input { flex: 1; }
+.enter__code { margin-bottom: 18px; }
+.enter__error { margin-top: 10px; font-size: 14px; font-weight: 500; color: var(--danger); }
+.enter__error:empty { display: none; }
+.enter__hint { margin-top: 10px; font-size: 13px; color: var(--ink-3); }
+
+.stats { display: flex; flex-wrap: wrap; gap: 20px 40px; margin-top: 44px; padding-top: 26px; border-top: 1px solid var(--line); }
+.stats dt { order: 2; font-size: 13px; color: var(--ink-2); }
+.stats dd { font: 500 44px/1 var(--font-display); font-variant-numeric: lining-nums; }
+.stats > div { display: flex; flex-direction: column; gap: 6px; }
+
+/* Годовые кольца: по одному на каждый год старейшины рода */
+.cover__rings {
+  position: absolute;
+  top: 50%;
+  right: -30vh;
+  width: 118vh;
+  height: 118vh;
+  transform: translateY(-50%);
+  pointer-events: none;
+  animation: rings-in 1.6s var(--ease) both;
+}
+@keyframes rings-in { from { opacity: 0; transform: translateY(-50%) scale(.94) rotate(-6deg); } }
+
+.cover__caption {
+  position: absolute;
+  right: 44px;
+  bottom: 38px;
+  z-index: 2;
+  max-width: 360px;
+  padding: 10px 14px;
+  border-radius: var(--r-sm);
+  background: var(--paper);
+  font: italic 500 17px/1.3 var(--font-display);
+  color: var(--ink-2);
+  text-align: right;
+}
+
+@media (max-width: 980px) {
+  .cover { align-items: flex-start; }
+  .cover::before, .cover::after { display: none; }
+  .cover__inner { margin: 0 auto; padding: 40px 22px 56px; }
+  /* центр колец — в правом нижнем углу, чтобы не спорить с цифрами */
+  .cover__rings { top: auto; bottom: -70vw; right: -66vw; width: 140vw; height: 140vw; transform: none; opacity: .5; animation: none; }
+  .cover__caption { display: none; }
+  .enter__row { flex-direction: column; }
+  .stats { gap: 18px 28px; }
+  .stats dd { font-size: 36px; }
+}

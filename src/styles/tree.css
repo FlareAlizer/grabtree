@@ -1,0 +1,275 @@
+/* ── Холст древа ────────────────────────────────────────── */
+.view--tree { position: relative; overflow: hidden; }
+
+.tree-viewport {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+.tree-viewport.is-dragging { cursor: grabbing; }
+
+.tree-stage { position: absolute; top: 0; left: 0; transform-origin: 0 0; will-change: transform; }
+.tree-stage.is-animating { transition: transform .55s var(--ease); }
+
+/* Бледное дерево за карточками */
+.foliage { position: absolute; top: 0; left: 0; overflow: visible; pointer-events: none; opacity: .1; }
+.foliage__trunk, .foliage__leaf { fill: var(--moss); }
+.foliage__branch { fill: none; stroke: var(--moss); stroke-width: 5; stroke-linecap: round; }
+
+/* Лента-заголовок с годами на концах */
+.ribbon { position: absolute; transform: translateX(-50%); filter: drop-shadow(0 10px 12px rgba(40, 30, 10, .16)); pointer-events: none; }
+.ribbon__body {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 26px;
+  height: 66px;
+  padding: 0 40px;
+  background-color: var(--ribbon);
+  background-image: linear-gradient(var(--ribbon-fold), var(--ribbon-fold)), linear-gradient(var(--ribbon-fold), var(--ribbon-fold));
+  background-size: 100% 1px;
+  background-position: 0 5px, 0 calc(100% - 5px);
+  background-repeat: no-repeat;
+  color: var(--ribbon-ink);
+  white-space: nowrap;
+}
+.ribbon__body::before, .ribbon__body::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  width: 26px;
+  height: 12px;
+  background: var(--ribbon-fold);
+}
+.ribbon__body::before { left: 0; clip-path: polygon(0 0, 100% 0, 100% 100%); }
+.ribbon__body::after { right: 0; clip-path: polygon(0 0, 100% 0, 0 100%); }
+.ribbon__tail {
+  position: absolute;
+  top: 12px;
+  left: -44px;
+  width: 70px;
+  height: 66px;
+  background: var(--ribbon-shade);
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, 22px 50%);
+}
+.ribbon__tail--r { left: auto; right: -44px; transform: scaleX(-1); }
+.ribbon__title { font: 600 36px/1 var(--font-display); letter-spacing: .01em; }
+.ribbon__title em { font-style: italic; }
+.ribbon__year { font: 600 20px/1 var(--font-display); letter-spacing: .1em; opacity: .65; }
+
+/* Подписи поколений */
+.gen-label {
+  position: absolute;
+  transform: translateY(-50%);
+  display: grid;
+  gap: 4px;
+  color: var(--ink-3);
+  font-size: 11px;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+}
+.gen-label b { font: italic 500 44px/1 var(--font-display); letter-spacing: 0; color: var(--moss); opacity: .75; }
+
+/* Связи-ветви, листья и обручальные кольца */
+.tree-links { position: absolute; top: 0; left: 0; overflow: visible; pointer-events: none; }
+.link { fill: none; stroke: var(--line-strong); stroke-width: 1.6; stroke-linecap: round; }
+.link--partner { stroke: var(--gold); stroke-width: 1.8; }
+.leaf { fill: var(--moss-2); opacity: .34; }
+.leaf--gold { fill: var(--gold); opacity: .55; }
+.wed ellipse { fill: var(--paper); }
+.wed circle { fill: none; stroke: var(--gold); stroke-width: 1.8; }
+
+/* Карточка человека */
+.node { position: absolute; width: 172px; height: 240px; }
+
+.card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  height: 100%;
+  padding: 14px 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--card);
+  box-shadow: var(--shadow-card);
+  text-align: center;
+  transition: transform .2s var(--ease), border-color .2s, box-shadow .2s;
+}
+.card:hover { transform: translateY(-3px); border-color: var(--line-strong); }
+.node.is-selected .card { border-color: var(--moss); box-shadow: 0 0 0 3px var(--moss-wash), var(--shadow-card); }
+
+.card .portrait { width: 96px; height: 118px; }
+.card__first { margin-top: 10px; font: 600 23px/1.05 var(--font-display); }
+.card__last {
+  margin-top: 5px;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.3;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+.card__kin {
+  max-width: 100%;
+  margin-top: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: italic 600 16px/1.1 var(--font-display);
+  color: var(--clay);
+}
+.card__years { margin-top: auto; font-size: 12px; line-height: 1.3; font-variant-numeric: tabular-nums; color: var(--ink-3); }
+
+.node.is-late .portrait img { filter: grayscale(1) contrast(.95); }
+.node.is-late .card { background: var(--card-late); }
+.node.is-me .card { border-color: var(--clay); }
+
+/* Старейшина рода */
+.node.is-elder .card { border-color: var(--gold); background: linear-gradient(var(--card-elder), var(--card) 60%); }
+.node.is-elder .portrait { border-color: var(--gold); }
+.node__badge {
+  position: absolute;
+  top: -11px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--gold);
+  color: var(--on-accent);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .04em;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+/* У человека есть родители за пределами показанной ветви */
+.node__up {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 24px;
+  height: 24px;
+  border: 1px solid var(--gold);
+  border-radius: 50%;
+  background: var(--gold-wash);
+  font-size: 13px;
+  line-height: 1;
+}
+
+/* Ручки «дописать ветвь» вокруг выбранной карточки */
+.node__add {
+  position: absolute;
+  display: none;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: 2px solid var(--paper);
+  border-radius: 50%;
+  background: var(--moss);
+  color: var(--on-accent);
+  font-size: 20px;
+  line-height: 1;
+  z-index: 2;
+  transition: transform .15s var(--ease), background .15s;
+}
+.node.is-selected { z-index: 3; }
+.node.is-selected .node__add { display: grid; }
+.node__add:hover { background: var(--clay); transform: scale(1.14); }
+.node__add--parent { top: -15px; left: calc(50% - 15px); }
+.node__add--child { bottom: -15px; left: calc(50% - 15px); }
+.node__add--partner { right: -15px; top: 58px; }
+.node.is-elder .node__add--parent { left: calc(100% - 26px); }
+
+.node__add::after {
+  content: attr(data-label);
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 8px);
+  transform: translateX(-50%);
+  padding: 5px 10px;
+  border-radius: 6px;
+  background: var(--ink);
+  color: var(--paper);
+  font-size: 12px;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .15s;
+}
+.node__add:hover::after, .node__add:focus-visible::after { opacity: 1; }
+
+/* Панель управления холстом */
+.tree-tools {
+  position: absolute;
+  left: 20px;
+  bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--card);
+  box-shadow: var(--shadow-pop);
+}
+.tree-tools button {
+  min-width: 36px;
+  height: 36px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  font-size: 14px;
+  white-space: nowrap;
+}
+.tree-tools button:hover { background: var(--moss-wash); }
+.tree-tools__zoom { min-width: 44px; font-size: 13px; text-align: center; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.tree-tools__sep { width: 1px; height: 20px; margin: 0 4px; background: var(--line); }
+
+.tree-hint {
+  position: absolute;
+  right: 20px;
+  bottom: 20px;
+  padding: 12px 18px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--card);
+  box-shadow: var(--shadow-pop);
+  font-size: 13px;
+  color: var(--ink-2);
+  white-space: nowrap;
+  pointer-events: none;
+  transition: opacity .4s;
+}
+.tree-hint.is-seen { opacity: 0; }
+
+.tree-empty {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 16px;
+  text-align: center;
+}
+.tree-empty h2 { font: 500 40px/1.1 var(--font-display); }
+.tree-empty p { max-width: 380px; color: var(--ink-2); }
+
+@media (max-width: 1280px) {
+  .tree-hint { display: none; }
+}
+@media (max-width: 760px) {
+  .tree-tools { left: 10px; bottom: 10px; }
+  .tree-tools button { padding: 0 8px; }
+  .tree-tools__zoom { display: none; }
+}

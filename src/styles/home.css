@@ -1,0 +1,126 @@
+/* ── «Сегодня»: чем живёт семья ─────────────────────────── */
+.view--home { overflow-y: auto; }
+.home { width: min(1120px, 100%); margin: 0 auto; padding: 48px 28px 96px; }
+.home__title { margin-top: 10px; font: 500 clamp(40px, 5.4vw, 68px)/1 var(--font-display); letter-spacing: -.01em; }
+.home__lead { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin-top: 16px; color: var(--ink-2); }
+
+.home__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; margin-top: 36px; }
+
+.tile {
+  min-width: 0;
+  padding: 26px 28px 28px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--card);
+  box-shadow: var(--shadow-card);
+}
+.tile--wide { grid-column: 1 / -1; }
+.tile__head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; margin-bottom: 18px; }
+.tile__title { font: 600 27px/1.1 var(--font-display); }
+.tile__note { font-size: 13px; color: var(--ink-3); }
+.tile__text { font-size: 15px; color: var(--ink-2); }
+
+/* Книга к празднику: годовые кольца заполняются воспоминаниями */
+.book {
+  display: grid;
+  grid-template-columns: 250px minmax(0, 1fr);
+  gap: 40px;
+  align-items: start;
+  border-color: var(--gold);
+  background: linear-gradient(135deg, var(--card-elder), var(--card) 60%);
+}
+.book__progress { text-align: center; }
+.book__rings { display: block; width: 100%; aspect-ratio: 1; }
+.book__rings .ring { stroke-width: 2.2; opacity: .3; }
+.book__rings .ring--decade { opacity: .6; }
+.book__rings .ring--lit { stroke-width: 5.6; opacity: 1; }
+.book__count { margin-top: 12px; font: 500 56px/1 var(--font-display); color: var(--clay); }
+.book__count small { font-size: 26px; color: var(--ink-2); }
+.book__caption { margin-top: 4px; font-size: 13px; color: var(--ink-3); }
+.book__body { display: grid; gap: 14px; justify-items: start; }
+.book__body > .memory-form, .book__body > .memories { width: 100%; }
+.book__title { font: 500 44px/1 var(--font-display); letter-spacing: -.01em; }
+.book__lead { max-width: 620px; color: var(--ink-2); }
+
+/* Кто вы в древе */
+.who { display: grid; gap: 14px; }
+.who .tile__head { margin-bottom: 0; }
+.who__input { max-width: 360px; border-radius: 999px; padding-inline: 18px; }
+
+/* Настройки хранителя */
+.settings { display: grid; gap: 14px; }
+.settings .tile__head { margin-bottom: 2px; }
+.settings__row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; }
+.settings__row .input { flex: 1 1 220px; max-width: 360px; }
+.settings__label { font-size: 15px; color: var(--ink-2); }
+.settings b { font-weight: 600; color: var(--ink); user-select: all; }
+
+/* Строки: даты и новости */
+.rows { display: grid; }
+.row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 12px 0;
+  border: 0;
+  border-top: 1px solid var(--line);
+  background: none;
+  text-align: left;
+}
+.row:first-child { padding-top: 0; border-top: 0; }
+.row:last-child { padding-bottom: 0; }
+.row__title { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px; font-weight: 500; transition: color .15s; }
+.row:hover .row__title { color: var(--clay); }
+.row__sub { display: block; font-size: 13px; color: var(--ink-2); }
+.row__aside { font-size: 13px; color: var(--ink-3); white-space: nowrap; }
+.row .portrait { width: 34px; height: 42px; padding: 1.5px; border-width: 1px; }
+
+.datebox { display: grid; justify-items: center; width: 52px; padding: 7px 0 8px; border-radius: 12px; background: var(--moss-wash); }
+.datebox b { font: 600 27px/1 var(--font-display); }
+.datebox small { font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-2); }
+.row.is-today .datebox { background: var(--clay); color: var(--on-accent); }
+.row.is-today .datebox small { color: inherit; }
+.row.is-today .row__aside { color: var(--clay); font-weight: 600; }
+.row.is-memorial .datebox { background: none; box-shadow: inset 0 0 0 1px var(--line); }
+
+/* Вопрос недели и приглашение — полосы во всю ширину */
+.question, .invite { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 16px 32px; }
+.question { border-color: var(--gold); background: var(--gold-wash); }
+.question__main { display: grid; gap: 14px; justify-items: start; }
+.question .kin__chip { background: var(--card); }
+.question__text { font: italic 500 34px/1.15 var(--font-display); }
+.invite { background: none; box-shadow: none; border-style: dashed; border-color: var(--line-strong); }
+.invite .tile__text { max-width: 620px; margin-top: 8px; }
+
+/* Чего не хватает */
+.meter { height: 8px; overflow: hidden; border-radius: 999px; background: var(--paper-2); }
+.meter i { display: block; height: 100%; border-radius: inherit; background: var(--moss); }
+.gap { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); }
+.gap__label { display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 14px; }
+.gap__label span { color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.gap__more { padding-left: 6px; font-size: 13px; color: var(--ink-3); }
+
+/* Где мы живём */
+.geo { display: grid; }
+.geo__row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 14px; padding: 12px 0; border-top: 1px solid var(--line); }
+.geo__row:first-child { padding-top: 0; border-top: 0; }
+.geo__row:last-child { padding-bottom: 0; }
+.geo__name { display: block; font: 600 23px/1.1 var(--font-display); }
+.geo__faces { display: flex; padding-left: 8px; }
+.face { margin-left: -8px; padding: 0; border: 0; border-radius: 50%; background: none; transition: transform .15s var(--ease); }
+.face:hover { transform: translateY(-3px); }
+.face .portrait { width: 34px; height: 42px; padding: 1.5px; border-width: 1px; }
+.geo__count { display: block; margin-top: 3px; font-size: 13px; color: var(--ink-3); }
+
+@media (max-width: 900px) {
+  .home { padding: 32px 16px 72px; }
+  .home__grid { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+  .tile { padding: 22px 20px 24px; }
+  .book { grid-template-columns: minmax(0, 1fr); gap: 20px; }
+  .book__rings { width: 180px; margin: 0 auto; }
+  .book__title { font-size: 36px; }
+  .question, .invite { grid-template-columns: minmax(0, 1fr); justify-items: start; }
+  .question__text { font-size: 28px; }
+}

@@ -1,0 +1,14 @@
+{
+  "name": "grabtree",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Редактируемое семейное древо",
+  "engines": {
+    "node": ">=20.12"
+  },
+  "scripts": {
+    "start": "node server/index.mjs",
+    "test": "node --test tests/api.test.mjs tests/client.test.mjs"
+  }
+}
