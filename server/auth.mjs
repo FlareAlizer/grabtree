@@ -2,6 +2,7 @@
 import { createHmac, createHash, randomBytes, randomInt, timingSafeEqual } from 'node:crypto';
 import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { isIPv6 } from 'node:net';
 import { HttpError } from './http.mjs';
 
 const SESSION = 'gt_session';            // вход: действует, пока не сменили коды и не вышел срок
@@ -9,7 +10,8 @@ const DEVICE = 'gt_device';              // устройство: пережив
 const SESSION_AGE = 180 * 24 * 3600;     // сессия живёт полгода
 const DEVICE_AGE = 3 * 365 * 24 * 3600;
 const WINDOW = 15 * 60 * 1000;           // окно для подсчёта неверных попыток
-const MAX_FAILS = 8;
+const MAX_FAILS = 8;                     // с одного адреса
+const MAX_FAILS_TOTAL = 100;             // со всех адресов вместе
 const MIN_CODE = 8;
 
 // Кодовые слова собираются из названий деревьев латиницей — их можно набрать с любой клавиатуры.
@@ -26,6 +28,23 @@ export const normalizeCode = (value) => String(value || '').trim().toLowerCase()
 const digest = (text) => createHash('sha256').update(text).digest();
 // Сравнение без утечки по времени; хеши одной длины, поэтому годится для любых строк.
 const sameText = (a, b) => timingSafeEqual(digest(a), digest(b));
+
+// По какому ключу считать неверные попытки. У IPv6 это вся сеть /64: её целиком выдают одному абоненту,
+// и менять адреса внутри неё ничего не стоит. IPv4, записанный как ::ffff:1.2.3.4, — тот же IPv4.
+export function limiterKey(ip) {
+  const addr = String(ip).split('%')[0].toLowerCase().slice(0, 64);
+  const mapped = addr.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/);
+  if (mapped) return mapped[1];
+  if (!isIPv6(addr)) return addr;
+  const [head, tail] = addr.split('::');
+  let groups = head ? head.split(':') : [];
+  if (tail !== undefined) {
+    const rest = tail ? tail.split(':') : [];
+    const restLength = rest.length + (tail.includes('.') ? 1 : 0); // IPv4 в хвосте занимает две группы
+    groups = [...groups, ...Array(8 - groups.length - restLength).fill('0'), ...rest];
+  }
+  return `${groups.slice(0, 4).map((group) => parseInt(group, 16).toString(16)).join(':')}::/64`;
+}
 
 export function cleanName(value) {
   const name = String(value || '').replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim();
@@ -99,15 +118,18 @@ export async function openAuth(dir, env = {}, { proxyHops = 0 } = {}) {
 
   function user(req) {
     const p = unseal(cookie(req, SESSION));
-    if (!p || p.g !== generation || Date.now() - p.t >= SESSION_AGE * 1000) return null;
-    return { uid: p.u, name: p.n, admin: p.a === 1 };
+    if (!p || p.g !== generation || !(Date.now() - p.t < SESSION_AGE * 1000)) return null;
+    return { uid: p.u, name: p.n, admin: p.a === 1, since: p.t };
   }
 
   // Вместе с сессией выдаётся метка устройства. По ней человек остаётся собой после выхода,
   // истечения сессии или смены кодов: его записи и сердечки по-прежнему его.
+  // who.since — когда человек вводил код: смена имени срок сессии не продлевает.
   function issue(req, res, who) {
+    const since = who.since ?? Date.now();
+    const left = Math.max(1, SESSION_AGE - Math.floor((Date.now() - since) / 1000));
     res.setHeader('set-cookie', [
-      `${SESSION}=${seal({ u: who.uid, n: who.name, a: who.admin ? 1 : 0, g: generation, t: Date.now() })}${attrs(req, SESSION_AGE)}`,
+      `${SESSION}=${seal({ u: who.uid, n: who.name, a: who.admin ? 1 : 0, g: generation, t: since })}${attrs(req, left)}`,
       `${DEVICE}=${seal({ u: who.uid })}${attrs(req, DEVICE_AGE)}`,
     ]);
     return who;
@@ -115,19 +137,26 @@ export async function openAuth(dir, env = {}, { proxyHops = 0 } = {}) {
 
   // Защита от подбора: не больше MAX_FAILS неверных кодов с одного адреса за WINDOW.
   // Удачный вход счётчик не сбрасывает — иначе, зная слово семьи, можно без ограничений подбирать код хранителя.
+  // Второй счётчик — общий: кто перебирает код с тысячи адресов, упирается в MAX_FAILS_TOTAL. Пока он исчерпан,
+  // войти не может никто (уже вошедших это не касается): закрытый на четверть часа вход лучше подобранного кода.
   const attempts = new Map();
-  function noteFailure(ip) {
+  let total = { fails: 0, until: 0 };
+  function noteFailure(key) {
     const now = Date.now();
-    for (const [key, entry] of attempts) if (entry.until < now) attempts.delete(key);
-    const entry = attempts.get(ip);
+    for (const [other, entry] of attempts) if (entry.until < now) attempts.delete(other);
+    if (total.until < now) total = { fails: 0, until: now + WINDOW };
+    total.fails++;
+    const entry = attempts.get(key);
     if (entry) entry.fails++;
-    else attempts.set(ip, { fails: 1, until: now + WINDOW });
+    else attempts.set(key, { fails: 1, until: now + WINDOW });
   }
 
   function login(req, res, { name, code }) {
-    const ip = clientIp(req);
+    const ip = limiterKey(clientIp(req));
+    const now = Date.now();
     const entry = attempts.get(ip);
-    if (entry && entry.until > Date.now() && entry.fails >= MAX_FAILS) throw new HttpError(429, 'Слишком много попыток. Попробуйте через 15 минут.');
+    const blocked = (entry && entry.until > now && entry.fails >= MAX_FAILS) || (total.until > now && total.fails >= MAX_FAILS_TOTAL);
+    if (blocked) throw new HttpError(429, 'Слишком много попыток. Попробуйте через 15 минут.');
 
     const typed = normalizeCode(code);
     const admin = sameText(typed, codes.admin);

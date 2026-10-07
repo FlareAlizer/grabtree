@@ -161,9 +161,10 @@ export async function createApp({ dataDir, publicDir, env = {}, proxyHops = 0 })
 
   async function route(req, res) {
     for (const [name, value] of Object.entries(SECURITY_HEADERS)) res.setHeader(name, value);
-    const url = new URL(req.url, 'http://localhost');
+    let url;
     let path;
     try {
+      url = new URL(req.url, 'http://localhost');
       path = decodeURIComponent(url.pathname);
     } catch {
       throw new HttpError(400, 'Неверный адрес');
@@ -183,6 +184,8 @@ export async function createApp({ dataDir, publicDir, env = {}, proxyHops = 0 })
   function handle(req, res) {
     return route(req, res).catch((err) => {
       const known = err instanceof HttpError;
+      // посетитель оборвал запрос на полуслове — это не ошибка сервера, в журнал она не идёт
+      if (err?.code === 'ECONNRESET') return res.destroy();
       if (!known) console.error(`${req.method} ${req.url}:`, err);
       if (res.headersSent) return res.destroy();
       sendJson(req, res, known ? err.status : 500, { error: known ? err.message : 'На сервере что-то пошло не так. Попробуйте ещё раз.' });

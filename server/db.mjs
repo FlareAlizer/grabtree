@@ -84,8 +84,9 @@ export async function openDb(dir) {
     db.version++;
     const snapshot = JSON.stringify(db);
     const next = queue.then(async () => {
-      // сначала во временный файл, потом подмена: при сбое на диске остаётся целая прежняя версия
-      await writeFile(`${file}.tmp`, snapshot, { mode: 0o600 });
+      // сначала во временный файл, потом подмена: при сбое на диске остаётся целая прежняя версия.
+      // flush дожидается, пока данные дойдут до диска, — иначе после отключения питания подменённый файл может оказаться пустым
+      await writeFile(`${file}.tmp`, snapshot, { mode: 0o600, flush: true });
       await rename(`${file}.tmp`, file);
     });
     queue = next.catch(() => {});
@@ -95,7 +96,7 @@ export async function openDb(dir) {
   // Журнал: кто, когда и что изменил. Нужен, чтобы разобраться и восстановить, если что-то сотрут.
   function journal(user, op, details) {
     const line = JSON.stringify({ at: stamp(), uid: user.uid, by: user.name, op, ...details });
-    appendFile(join(dir, 'journal.ndjson'), `${line}\n`).catch((err) => console.error('journal:', err.message));
+    appendFile(join(dir, 'journal.ndjson'), `${line}\n`, { mode: 0o600 }).catch((err) => console.error('journal:', err.message));
   }
 
   async function backup() {

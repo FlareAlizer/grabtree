@@ -3,10 +3,13 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
+import { connect } from 'node:net';
+import { spawnSync } from 'node:child_process';
 import { mkdtemp, rm, readFile, readdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createApp } from '../server/app.mjs';
+import { limiterKey } from '../server/auth.mjs';
 
 const FAMILY_CODE = 'iva-topol-vyaz-17';
 const ADMIN_CODE = 'test-keeper-code-905';
@@ -368,4 +371,61 @@ test('за прокси подделанный X-Forwarded-For не помога
   const honest = await relative('POST', '/api/login', { name: 'Первая', code: FAMILY_CODE }, { 'x-forwarded-for': '203.0.113.9, 198.51.100.7' });
   assert.equal(honest.status, 200); // адрес нападавшего, подставленный в заголовок, честному посетителю не мешает
   await site.stop();
+});
+
+test('подбор кода с адресов одной сети IPv6 считается как с одного адреса', async () => {
+  const site = await launch({ proxyHops: 1 });
+  const guest = client(() => site);
+  for (let i = 1; i <= 8; i++) assert.equal((await wrongLogin(guest, { 'x-forwarded-for': `2001:db8:1:2::${i.toString(16)}` })).status, 401);
+  assert.equal((await wrongLogin(guest, { 'x-forwarded-for': '2001:db8:1:2:aaaa:bbbb:cccc:dddd' })).status, 429);
+  assert.equal((await wrongLogin(guest, { 'x-forwarded-for': '2001:db8:1:3::1' })).status, 401); // соседняя сеть — свой счёт
+  await site.stop();
+
+  assert.equal(limiterKey('2001:0DB8:0001:0002:aaaa::1'), '2001:db8:1:2::/64');
+  assert.equal(limiterKey('::1'), '0:0:0:0::/64');
+  assert.equal(limiterKey('fe80::1%eth0'), 'fe80:0:0:0::/64');
+  assert.equal(limiterKey('64:ff9b::203.0.113.9'), '64:ff9b:0:0::/64');
+  assert.equal(limiterKey('::ffff:203.0.113.9'), '203.0.113.9');
+  assert.equal(limiterKey('203.0.113.9'), '203.0.113.9');
+});
+
+test('подбор кода с множества адресов упирается в общий потолок', async () => {
+  const site = await launch({ proxyHops: 1 });
+  const guest = client(() => site);
+  for (let i = 0; i < 100; i++) assert.equal((await wrongLogin(guest, { 'x-forwarded-for': `198.51.100.${i}` })).status, 401);
+  assert.equal((await wrongLogin(guest, { 'x-forwarded-for': '192.0.2.1' })).status, 429);
+  // пока потолок исчерпан, не помогает и верный код — иначе по ответу было бы видно, что он угадан
+  assert.equal((await guest('POST', '/api/login', { name: 'Первая', code: FAMILY_CODE }, { 'x-forwarded-for': '192.0.2.2' })).status, 429);
+  await site.stop();
+});
+
+test('смена имени не продлевает сессию: срок считается от ввода кода', async () => {
+  const one = await member('Первая');
+  const issuedAt = () => JSON.parse(Buffer.from(one.jar.get('gt_session').split('.')[0], 'base64url')).t;
+  const before = issuedAt();
+  await new Promise((done) => setTimeout(done, 15));
+  assert.equal((await one('POST', '/api/name', { name: 'Первая Родственница' })).status, 200);
+  assert.equal(issuedAt(), before);
+  assert.equal((await one('GET', '/api/state')).body.me.name, 'Первая Родственница');
+});
+
+test('кривой адрес запроса — ответ 400, а не ошибка сервера', async () => {
+  const { port } = new URL(main.base);
+  const status = await new Promise((resolve, reject) => {
+    const socket = connect(Number(port), '127.0.0.1', () => socket.write('GET http://[ HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n'));
+    let head = '';
+    socket.on('data', (chunk) => { head += chunk; });
+    socket.on('close', () => resolve(Number(head.split(' ')[1])));
+    socket.on('error', reject);
+  });
+  assert.equal(status, 400);
+});
+
+test('сервер не запускается с непонятным TRUST_PROXY', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'grabtree-test-'));
+  const run = spawnSync(process.execPath, ['server/index.mjs'], { env: { ...process.env, TRUST_PROXY: 'yes', DATA_DIR: dir, PORT: '0' }, encoding: 'utf8', timeout: 10000 });
+  assert.equal(run.status, 1);
+  assert.match(run.stderr, /TRUST_PROXY/);
+  assert.deepEqual(await readdir(dir), []); // до данных дело не дошло
+  await rm(dir, { recursive: true, force: true });
 });
